@@ -1,0 +1,18 @@
+name: Deprecate Old Versions
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deprecate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Deprecate versions older than 0.1.4
+        run: npm deprecate homebridge-lg-thinqconnect-ac@"<0.1.4" "Please upgrade to v0.1.4 or later. Older versions are no longer supported."
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
