@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "watch": "tsc -w",
-    "prepare": "node -e \"process.exit(require('fs').existsSync('dist')?0:1)\" || tsc"
+    "prepare": "tsc"
   },
   "files": [
     "dist",
