@@ -1,0 +1,27 @@
+{
+  "pluginAlias": "LgThinQAc",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "LG ThinQ AC"
+      },
+      "accessToken": {
+        "title": "Personal Access Token",
+        "type": "string",
+        "required": true,
+        "description": "Personal Access Token from https://connect-pat.lgthinq.com"
+      },
+      "countryCode": {
+        "title": "Country Code",
+        "type": "string",
+        "default": "DE",
+        "description": "Two-letter country code (e.g. DE, US, KR)"
+      }
+    }
+  }
+}
