@@ -97,7 +97,7 @@ export class LgThinQAcPlatform implements DynamicPlatformPlugin {
         const state = await this.thinqApi.getDeviceStatus(deviceId);
         accessory.updateState(state);
       } catch (err) {
-        this.log.debug(`[${deviceId}] Poll failed:`, (err as Error).message);
+        this.log.error(`[${deviceId}] Poll failed:`, (err as Error).message);
       }
     }
   }

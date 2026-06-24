@@ -150,7 +150,7 @@ export class AirConditionerAccessory {
       const state = await this.platform.thinqApi.getDeviceStatus(this.device.deviceId);
       this.updateState(state);
     } catch (err) {
-      this.platform.log.debug(
+      this.platform.log.error(
         `[${this.device.deviceId}] Initial state fetch failed:`, (err as Error).message,
       );
     }
