@@ -1,0 +1,49 @@
+name: Create GitHub Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release tag, e.g. v0.1.5'
+        required: true
+      release_name:
+        description: 'Release title'
+        required: false
+        default: ''
+      body:
+        description: 'Release notes'
+        required: false
+        default: ''
+      prerelease:
+        description: 'Mark this release as prerelease'
+        required: false
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - run: npm install
+
+      - run: npm run build
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.event.inputs.tag_name }}
+          release_name: ${{ github.event.inputs.release_name || github.event.inputs.tag_name }}
+          body: ${{ github.event.inputs.body }}
+          draft: false
+          prerelease: ${{ github.event.inputs.prerelease }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
