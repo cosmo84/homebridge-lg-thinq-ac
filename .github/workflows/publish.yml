@@ -39,3 +39,19 @@ jobs:
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Deprecate previous versions
+        if: steps.version_check.outputs.already_published == 'false'
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          VERSIONS=$(npm view homebridge-lg-thinqconnect-ac versions --json | node -e "
+            const current = '$VERSION';
+            const all = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+            all.filter(v => v !== current).forEach(v => console.log(v));
+          ")
+          for v in $VERSIONS; do
+            echo "Deprecating $v..."
+            npm deprecate homebridge-lg-thinqconnect-ac@$v "Deprecated: please upgrade to v$VERSION"
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
