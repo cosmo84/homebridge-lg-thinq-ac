@@ -3,9 +3,6 @@ name: Create GitHub Release
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: 'Version (e.g. 0.1.6)'
-        required: true
       body:
         description: 'Release notes'
         required: false
@@ -21,6 +18,7 @@ permissions:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    environment: production
 
     steps:
       - uses: actions/checkout@v4
@@ -29,24 +27,19 @@ jobs:
         with:
           node-version: '24'
 
-      - name: Bump version in package.json
-        run: |
-          npm version ${{ github.event.inputs.version }} --no-git-tag-version
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "chore: bump version to ${{ github.event.inputs.version }}"
-          git push
-
       - run: npm install
 
       - run: npm run build
 
+      - name: Read version from package.json
+        id: version
+        run: echo "value=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ github.event.inputs.version }}
-          release_name: v${{ github.event.inputs.version }}
+          tag_name: v${{ steps.version.outputs.value }}
+          release_name: v${{ steps.version.outputs.value }}
           body: ${{ github.event.inputs.body }}
           draft: false
           prerelease: ${{ github.event.inputs.prerelease }}
