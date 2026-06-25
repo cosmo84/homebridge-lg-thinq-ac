@@ -2,6 +2,14 @@ name: Deprecate Old Versions
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version or range to deprecate (e.g. "0.1.5" or "<0.1.5")'
+        required: true
+      message:
+        description: 'Deprecation message'
+        required: true
+        default: 'Please upgrade to the latest version.'
 
 jobs:
   deprecate:
@@ -9,10 +17,10 @@ jobs:
     steps:
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Deprecate versions older than 0.1.4
-        run: npm deprecate homebridge-lg-thinqconnect-ac@"<0.1.4" "Please upgrade to v0.1.4 or later. Older versions are no longer supported."
+      - name: Deprecate version
+        run: npm deprecate homebridge-lg-thinqconnect-ac@"${{ github.event.inputs.version }}" "${{ github.event.inputs.message }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
