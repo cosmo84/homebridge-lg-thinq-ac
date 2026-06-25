@@ -13,7 +13,6 @@
       "accessToken": {
         "title": "Personal Access Token",
         "type": "string",
-        "required": true,
         "description": "Personal Access Token from https://connect-pat.lgthinq.com"
       },
       "countryCode": {
@@ -22,6 +21,7 @@
         "default": "DE",
         "description": "Two-letter country code (e.g. DE, US, KR)"
       }
-    }
+    },
+    "required": ["accessToken"]
   }
 }
