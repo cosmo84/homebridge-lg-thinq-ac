@@ -11,6 +11,9 @@ on:
         required: true
         default: 'Please upgrade to the latest version.'
 
+permissions:
+  contents: read
+
 jobs:
   deprecate:
     runs-on: ubuntu-latest
