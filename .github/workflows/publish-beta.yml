@@ -24,12 +24,15 @@ jobs:
 
       - name: Bump version in package.json
         run: |
-          npm version ${{ github.event.inputs.version }} --no-git-tag-version
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.json
-          git commit -m "chore: bump version to ${{ github.event.inputs.version }}"
-          git push
+          CURRENT=$(node -p "require('./package.json').version")
+          if [ "$CURRENT" != "${{ github.event.inputs.version }}" ]; then
+            npm version ${{ github.event.inputs.version }} --no-git-tag-version
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add package.json
+            git commit -m "chore: bump version to ${{ github.event.inputs.version }}"
+            git push
+          fi
 
       - run: npm install
 
