@@ -7,6 +7,12 @@ on:
       - 'src/**'
       - 'tsconfig.json'
       - 'package.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tsconfig.json'
+      - 'package.json'
   workflow_dispatch:
 
 permissions:
@@ -25,4 +31,3 @@ jobs:
       - run: npm install
 
       - run: npm run build
-
