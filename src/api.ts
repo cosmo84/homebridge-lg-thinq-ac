@@ -18,6 +18,11 @@ function msgId(): string {
   return bytes.toString('base64url').slice(0, 22);
 }
 
+/** Returns the HTTP status code of an Axios error, or undefined for network/timeout errors. */
+export function httpStatus(err: unknown): number | undefined {
+  return axios.isAxiosError(err) ? err.response?.status : undefined;
+}
+
 export interface DeviceInfo {
   deviceId: string;
   deviceType: string;

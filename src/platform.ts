@@ -10,10 +10,17 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { PLUGIN_NAME, PLATFORM_NAME } from './settings';
 import { AirConditionerAccessory } from './accessory';
-import { ThinQApi, DeviceInfo } from './api';
+import { ThinQApi, DeviceInfo, httpStatus } from './api';
 
 const AC_DEVICE_TYPE = 'DEVICE_AIR_CONDITIONER';
 const POLL_INTERVAL_MS = 60_000;
+// Upper bound for exponential backoff after repeated transient poll failures.
+const MAX_BACKOFF_MS = 15 * 60_000;
+
+interface BackoffState {
+  failures: number;
+  nextPollAt: number;
+}
 
 export class LgThinQAcPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service;
@@ -22,6 +29,7 @@ export class LgThinQAcPlatform implements DynamicPlatformPlugin {
 
   private readonly cachedAccessories = new Map<string, PlatformAccessory>();
   private readonly deviceAccessories = new Map<string, AirConditionerAccessory>();
+  private readonly backoff = new Map<string, BackoffState>();
   private pollTimer?: ReturnType<typeof setInterval>;
 
   constructor(
@@ -92,13 +100,47 @@ export class LgThinQAcPlatform implements DynamicPlatformPlugin {
   }
 
   private async pollAllDevices() {
+    const now = Date.now();
     for (const [deviceId, accessory] of this.deviceAccessories) {
+      const state = this.backoff.get(deviceId);
+      if (state && now < state.nextPollAt) {
+        continue; // still backing off after earlier transient failures
+      }
       try {
-        const state = await this.thinqApi.getDeviceStatus(deviceId);
-        accessory.updateState(state);
+        const status = await this.thinqApi.getDeviceStatus(deviceId);
+        accessory.updateState(status);
+        if (state) {
+          this.backoff.delete(deviceId);
+          this.log.info(`[${deviceId}] Recovered, resuming normal polling`);
+        }
       } catch (err) {
-        this.log.error(`[${deviceId}] Poll failed:`, (err as Error).message);
+        this.handlePollError(deviceId, err);
       }
     }
+  }
+
+  private handlePollError(deviceId: string, err: unknown) {
+    const status = httpStatus(err);
+    const message = (err as Error).message;
+
+    // 416/429 and 5xx (or a network error with no response) are transient and
+    // usually indicate rate limiting — back off instead of hammering the API.
+    const transient = status === undefined || status === 416 || status === 429 || status >= 500;
+    if (!transient) {
+      this.backoff.delete(deviceId);
+      this.log.error(`[${deviceId}] Poll failed:`, message);
+      return;
+    }
+
+    const failures = (this.backoff.get(deviceId)?.failures ?? 0) + 1;
+    const delay = Math.min(POLL_INTERVAL_MS * 2 ** failures, MAX_BACKOFF_MS);
+    const jittered = delay + Math.floor(Math.random() * 1_000);
+    this.backoff.set(deviceId, { failures, nextPollAt: Date.now() + jittered });
+
+    this.log.warn(
+      `[${deviceId}] Poll failed (${status ?? 'network error'}), backing off ~${Math.round(jittered / 1_000)}s `
+      + `(attempt ${failures}):`,
+      message,
+    );
   }
 }
