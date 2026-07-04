@@ -36,12 +36,18 @@ jobs:
         run: echo "value=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Create GitHub release
-        uses: softprops/action-gh-release@de2c0eb89ae2a093876385947365aca7b0e5f844 # v1
-        with:
-          tag_name: v${{ steps.version.outputs.value }}
-          release_name: v${{ steps.version.outputs.value }}
-          body: ${{ github.event.inputs.body }}
-          draft: false
-          prerelease: ${{ github.event.inputs.prerelease }}
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.version.outputs.value }}
+          BODY: ${{ github.event.inputs.body }}
+          PRERELEASE: ${{ github.event.inputs.prerelease }}
+        run: |
+          FLAGS=()
+          if [ "$PRERELEASE" = "true" ]; then
+            FLAGS+=(--prerelease)
+          fi
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --notes "$BODY" \
+            --target "$GITHUB_SHA" \
+            "${FLAGS[@]}"
