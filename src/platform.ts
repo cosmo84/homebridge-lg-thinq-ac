@@ -10,7 +10,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { PLUGIN_NAME, PLATFORM_NAME } from './settings';
 import { AirConditionerAccessory } from './accessory';
-import { ThinQApi, DeviceInfo, httpStatus } from './api';
+import { ThinQApi, DeviceInfo, httpStatus, isTransient } from './api';
 
 const AC_DEVICE_TYPE = 'DEVICE_AIR_CONDITIONER';
 const POLL_INTERVAL_MS = 60_000;
@@ -123,10 +123,9 @@ export class LgThinQAcPlatform implements DynamicPlatformPlugin {
     const status = httpStatus(err);
     const message = (err as Error).message;
 
-    // 416/429 and 5xx (or a network error with no response) are transient and
-    // usually indicate rate limiting — back off instead of hammering the API.
-    const transient = status === undefined || status === 416 || status === 429 || status >= 500;
-    if (!transient) {
+    // Transient failures (rate limiting, 5xx, network errors) back off instead of
+    // hammering the API; anything else is a hard error we surface immediately.
+    if (!isTransient(err)) {
       this.backoff.delete(deviceId);
       this.log.error(`[${deviceId}] Poll failed:`, message);
       return;
