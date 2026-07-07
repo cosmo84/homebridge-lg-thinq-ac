@@ -23,6 +23,30 @@ export function httpStatus(err: unknown): number | undefined {
   return axios.isAxiosError(err) ? err.response?.status : undefined;
 }
 
+/**
+ * A failure is transient when it usually clears on its own: rate limiting (416/429),
+ * server-side errors (5xx), or a network/timeout error with no response at all.
+ */
+export function isTransient(err: unknown): boolean {
+  const status = httpStatus(err);
+  return status === undefined || status === 416 || status === 429 || status >= 500;
+}
+
+/** Retries fn on transient failures with short exponential backoff; rethrows anything else. */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3, baseDelayMs = 500): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!isTransient(err) || attempt >= attempts - 1) {
+        throw err;
+      }
+      const delay = baseDelayMs * 2 ** attempt + Math.floor(Math.random() * 250);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
 export interface DeviceInfo {
   deviceId: string;
   deviceType: string;
@@ -71,6 +95,8 @@ export class ThinQApi {
   }
 
   async controlDevice(deviceId: string, body: Record<string, unknown>): Promise<void> {
-    await this.http.post(`/devices/${deviceId}/control`, body, { headers: this.h() });
+    // Control is user-initiated and low-volume, so retry transient failures (e.g. LG
+    // rate-limiting with 416/429) instead of surfacing them to HomeKit as "No Response".
+    await withRetry(() => this.http.post(`/devices/${deviceId}/control`, body, { headers: this.h() }));
   }
 }
