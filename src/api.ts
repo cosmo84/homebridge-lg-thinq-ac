@@ -24,6 +24,19 @@ export function httpStatus(err: unknown): number | undefined {
 }
 
 /**
+ * Builds a human-readable one-line description of a failed control request,
+ * including the HTTP status and LG's response body (which carries the real
+ * reason, e.g. `{"error":{"code":"...","message":"..."}}`). Axios' own message
+ * only says "Request failed with status code 400" and hides that detail.
+ */
+export function controlErrorDetail(err: unknown): string {
+  const status = httpStatus(err);
+  const data = axios.isAxiosError(err) ? err.response?.data : undefined;
+  const body = data !== undefined ? ` body=${JSON.stringify(data)}` : '';
+  return `${status ?? 'network error'}: ${(err as Error).message}${body}`;
+}
+
+/**
  * A failure is transient when it usually clears on its own: rate limiting (416/429),
  * server-side errors (5xx), or a network/timeout error with no response at all.
  */
@@ -91,6 +104,17 @@ export class ThinQApi {
 
   async getDeviceStatus(deviceId: string): Promise<Record<string, unknown>> {
     const res = await this.http.get(`/devices/${deviceId}/state`, { headers: this.h() });
+    return (res.data?.response ?? {}) as Record<string, unknown>;
+  }
+
+  /**
+   * Fetches the device profile, which describes every property the device
+   * exposes and whether it is readable ('r') and/or writable ('w'). We use it
+   * to only expose HomeKit characteristics the device actually supports, so we
+   * never send control commands (e.g. swing) that LG rejects with an error.
+   */
+  async getDeviceProfile(deviceId: string): Promise<Record<string, unknown>> {
+    const res = await this.http.get(`/devices/${deviceId}/profile`, { headers: this.h() });
     return (res.data?.response ?? {}) as Record<string, unknown>;
   }
 

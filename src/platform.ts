@@ -85,7 +85,18 @@ export class LgThinQAcPlatform implements DynamicPlatformPlugin {
 
       accessory.context['device'] = device;
 
-      const acAccessory = new AirConditionerAccessory(this, accessory, device);
+      // Fetch the profile so the accessory only exposes supported features.
+      // On failure we pass no profile and the accessory exposes everything.
+      let profile: Record<string, unknown> | undefined;
+      try {
+        profile = await this.thinqApi.getDeviceProfile(device.deviceId);
+      } catch (err) {
+        this.log.warn(
+          `[${device.alias}] Profile fetch failed, exposing all features:`, (err as Error).message,
+        );
+      }
+
+      const acAccessory = new AirConditionerAccessory(this, accessory, device, profile);
       this.deviceAccessories.set(device.deviceId, acAccessory);
 
       if (existingAccessory) {
