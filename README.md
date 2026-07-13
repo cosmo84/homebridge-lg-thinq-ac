@@ -1,5 +1,7 @@
 # homebridge-lg-thinqconnect-ac
 
+[![verified-by-homebridge](https://img.shields.io/badge/homebridge-verified-blueviolet?color=%23491F59&style=for-the-badge&logoColor=%23FFFFFF&logo=homebridge)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
+
 Homebridge plugin for LG ThinQ air conditioners using the official [LG ThinQ Connect API](https://connect-pat.lgthinq.com).
 
 ## Requirements
