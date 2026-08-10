@@ -2,8 +2,31 @@ version: 2
 updates:
   - package-ecosystem: "npm"
     directory: "/"
+    target-branch: "dev"
     schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
+      interval: "monthly"
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
+    # Wait for a release to settle before opening a PR, so patch churn
+    # like @types/node 26.1.0 -> 26.1.1 -> 26.1.2 arrives as one update.
+    cooldown:
+      default-days: 7
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+      development-dependencies:
+        dependency-type: "development"
+    # Patch releases of type-only and build-time packages carry no runtime
+    # impact; they get picked up alongside the next minor or major bump.
+    # Security updates bypass this list.
+    ignore:
+      - dependency-name: "@types/*"
+        update-types:
+          - "version-update:semver-patch"
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-patch"
+      - dependency-name: "homebridge"
+        update-types:
+          - "version-update:semver-patch"

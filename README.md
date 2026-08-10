@@ -41,14 +41,18 @@ Restart Homebridge after saving the configuration. Your air conditioners will ap
 
 - Power on/off
 - Mode selection (Cool, Heat, Auto)
-- Target temperature
+- Target temperature, with per-mode ranges read from the device (typically Heat 16-30 °C, Cool/Auto 18-30 °C, 0.5° steps)
 - Current temperature (read-only)
-- Fan speed
-- Vertical swing
+- Fan speed, snapped to the device's own named speeds (a Low/Medium/High/Auto unit maps to 25/50/75/100 %)
+- Swing
+- Fault status
+
+Which of these appear depends on the device: the plugin reads each unit's profile
+on startup and only exposes what that unit actually supports.
 
 ## How It Works
 
-The plugin polls the LG ThinQ Connect API every 60 seconds to sync device state to HomeKit. Commands sent from HomeKit are forwarded to LG immediately.
+The plugin polls the LG ThinQ Connect API every 60 seconds to sync device state to HomeKit. Commands sent from HomeKit are forwarded to LG immediately, one at a time per device — LG's API rejects overlapping control requests, which a HomeKit Scene would otherwise trigger by setting several characteristics at once.
 
 ## Supported Regions
 
