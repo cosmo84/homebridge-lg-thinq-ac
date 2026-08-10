@@ -171,6 +171,13 @@ export class AirConditionerAccessory {
     // onSet and updateState() re-apply them whenever the mode changes.
     this.applyTempRangeProps(this.state.mode);
 
+    // 0.1.8-beta.1 added StatusFault to this service. HAP does not list it as a
+    // characteristic of HeaterCooler, and the Home app responds to the resulting
+    // non-conformant service by falling back to generic fan controls, hiding mode
+    // and temperature. It persists in the accessory cache, so no longer adding it
+    // is not enough — it has to be removed from accessories restored from cache.
+    this.removeCharacteristicIfPresent(Characteristic.StatusFault);
+
     // RotationSpeed and SwingMode are optional characteristics: only expose them
     // when the device supports them, and strip them from cached accessories that
     // no longer (or never did) support them so stale controls stop erroring.
