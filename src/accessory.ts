@@ -27,7 +27,6 @@ interface AcState {
   targetTempC: number;
   windStrength: string;
   swingUpDown: boolean;
-  hasFault: boolean;
 }
 
 /** Writable bounds of a `type: "range"` profile field. */
@@ -77,7 +76,6 @@ export class AirConditionerAccessory {
     targetTempC: 22,
     windStrength: 'AUTO',
     swingUpDown: false,
-    hasFault: false,
   };
 
   constructor(
@@ -172,15 +170,6 @@ export class AirConditionerAccessory {
     // 16-30°C, Cool/Auto 18-30°C, 0.5° steps). Seed them for the starting mode;
     // onSet and updateState() re-apply them whenever the mode changes.
     this.applyTempRangeProps(this.state.mode);
-
-    // HeaterCooler lists StatusFault as neither required nor optional, so it has to
-    // be added explicitly or hap-nodejs warns on every access.
-    this.service.addOptionalCharacteristic(Characteristic.StatusFault);
-    this.service.getCharacteristic(Characteristic.StatusFault)
-      .onGet(() => this.state.hasFault
-        ? Characteristic.StatusFault.GENERAL_FAULT
-        : Characteristic.StatusFault.NO_FAULT,
-      );
 
     // RotationSpeed and SwingMode are optional characteristics: only expose them
     // when the device supports them, and strip them from cached accessories that
@@ -333,7 +322,6 @@ export class AirConditionerAccessory {
     const swingUpDown  = this.caps.swingField
       ? nested(data, 'windDirection', this.caps.swingField) as boolean | undefined
       : undefined;
-    const runState     = nested(data, 'runState', 'currentState') as string | undefined;
 
     if (operation !== undefined) {
       this.state.isOn = operation === AC_OPERATION.ON;
@@ -381,15 +369,6 @@ export class AirConditionerAccessory {
         this.state.swingUpDown
           ? Characteristic.SwingMode.SWING_ENABLED
           : Characteristic.SwingMode.SWING_DISABLED,
-      );
-    }
-    if (runState !== undefined) {
-      this.state.hasFault = runState === 'ERROR';
-      this.service.updateCharacteristic(
-        Characteristic.StatusFault,
-        this.state.hasFault
-          ? Characteristic.StatusFault.GENERAL_FAULT
-          : Characteristic.StatusFault.NO_FAULT,
       );
     }
   }
