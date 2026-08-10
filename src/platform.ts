@@ -1,5 +1,6 @@
 import {
   API,
+  Categories,
   DynamicPlatformPlugin,
   Logger,
   PlatformAccessory,
@@ -83,6 +84,10 @@ export class LgThinQAcPlatform implements DynamicPlatformPlugin {
       const accessory = existingAccessory
         ?? new this.api.platformAccessory(device.alias || device.deviceId, uuid);
 
+      // 0.1.8-beta.1 set this to AIR_CONDITIONER. The category is persisted in the
+      // accessory cache, so restoring the previous behaviour means writing it back
+      // rather than merely no longer assigning it.
+      accessory.category = Categories.OTHER;
       accessory.context['device'] = device;
 
       // Fetch the profile so the accessory only exposes supported features.
