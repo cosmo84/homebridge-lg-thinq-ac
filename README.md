@@ -45,7 +45,6 @@ Restart Homebridge after saving the configuration. Your air conditioners will ap
 - Current temperature (read-only)
 - Fan speed, snapped to the device's own named speeds (a Low/Medium/High/Auto unit maps to 25/50/75/100 %)
 - Swing
-- Fault status
 
 Which of these appear depends on the device: the plugin reads each unit's profile
 on startup and only exposes what that unit actually supports.

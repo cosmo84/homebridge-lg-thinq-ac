@@ -1,6 +1,5 @@
 import {
   API,
-  Categories,
   DynamicPlatformPlugin,
   Logger,
   PlatformAccessory,
@@ -82,13 +81,8 @@ export class LgThinQAcPlatform implements DynamicPlatformPlugin {
       const uuid = this.api.hap.uuid.generate(device.deviceId);
       const existingAccessory = this.cachedAccessories.get(uuid);
       const accessory = existingAccessory
-        ?? new this.api.platformAccessory(
-          device.alias || device.deviceId, uuid, Categories.AIR_CONDITIONER,
-        );
+        ?? new this.api.platformAccessory(device.alias || device.deviceId, uuid);
 
-      // Also set on cached accessories, which were registered before this plugin
-      // passed a category and would otherwise stay on the generic "Other" icon.
-      accessory.category = Categories.AIR_CONDITIONER;
       accessory.context['device'] = device;
 
       // Fetch the profile so the accessory only exposes supported features.
