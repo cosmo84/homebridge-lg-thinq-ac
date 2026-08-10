@@ -36,6 +36,27 @@ interface TempRange {
   step: number;
 }
 
+interface CharProps {
+  minValue: number;
+  maxValue: number;
+  minStep: number;
+}
+
+// HAP fixes the permitted range of these two characteristics, and HeatingThreshold
+// stops at 25°C — below what LG units accept for heating. setProps() outside these
+// bounds yields a service the Home app may refuse to render as a climate device, so
+// the device's own range is intersected with them rather than applied raw.
+const HAP_COOLING_THRESHOLD = { min: 10, max: 35 };
+const HAP_HEATING_THRESHOLD = { min: 0, max: 25 };
+
+function clampToHapRange(range: CharProps, hap: { min: number; max: number }): CharProps {
+  return {
+    minValue: Math.max(range.minValue, hap.min),
+    maxValue: Math.min(range.maxValue, hap.max),
+    minStep: range.minStep,
+  };
+}
+
 /**
  * Which optional features the device actually supports, derived from its
  * profile. We only expose (and send control commands for) supported features,
@@ -264,7 +285,9 @@ export class AirConditionerAccessory {
       else if (m === AC_MODE.COOL) values.add(Characteristic.TargetHeaterCoolerState.COOL);
     }
     // If none of the modes map to a HomeKit state, don't restrict (avoid empty validValues).
-    return values.size > 0 ? [...values] : undefined;
+    // Sorted because the set's iteration order follows the device's profile, and
+    // validValues is conventionally ascending.
+    return values.size > 0 ? [...values].sort((a, b) => a - b) : undefined;
   }
 
   /** Maps a HEAT/AUTO/COOL mode to its HomeKit TargetHeaterCoolerState value. */
@@ -290,13 +313,21 @@ export class AirConditionerAccessory {
 
   private applyTempRangeProps(mode: string) {
     const { Characteristic } = this.platform;
-    const props = this.tempRangeForMode(mode);
+    const range = this.tempRangeForMode(mode);
+    const cooling = clampToHapRange(range, HAP_COOLING_THRESHOLD);
+    const heating = clampToHapRange(range, HAP_HEATING_THRESHOLD);
     // Push the current value first so hap-nodejs' own value/props reconciliation
     // inside setProps() never has to clamp a stale default against new bounds.
-    this.service.updateCharacteristic(Characteristic.CoolingThresholdTemperature, this.state.targetTempC);
-    this.service.updateCharacteristic(Characteristic.HeatingThresholdTemperature, this.state.targetTempC);
-    this.service.getCharacteristic(Characteristic.CoolingThresholdTemperature).setProps(props);
-    this.service.getCharacteristic(Characteristic.HeatingThresholdTemperature).setProps(props);
+    this.service.updateCharacteristic(
+      Characteristic.CoolingThresholdTemperature,
+      Math.min(Math.max(this.state.targetTempC, cooling.minValue), cooling.maxValue),
+    );
+    this.service.updateCharacteristic(
+      Characteristic.HeatingThresholdTemperature,
+      Math.min(Math.max(this.state.targetTempC, heating.minValue), heating.maxValue),
+    );
+    this.service.getCharacteristic(Characteristic.CoolingThresholdTemperature).setProps(cooling);
+    this.service.getCharacteristic(Characteristic.HeatingThresholdTemperature).setProps(heating);
   }
 
   private currentHcState(): number {
