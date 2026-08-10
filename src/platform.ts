@@ -14,8 +14,6 @@ import { AirConditionerAccessory } from './accessory';
 import { ThinQApi, DeviceInfo, httpStatus, isTransient } from './api';
 
 const AC_DEVICE_TYPE = 'DEVICE_AIR_CONDITIONER';
-// Normal operation: every supported feature exposed. See diagnosticLevel below.
-export const DIAGNOSTIC_FULL = 4;
 const POLL_INTERVAL_MS = 60_000;
 // Upper bound for exponential backoff after repeated transient poll failures.
 const MAX_BACKOFF_MS = 15 * 60_000;
@@ -29,13 +27,6 @@ export class LgThinQAcPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service;
   public readonly Characteristic: typeof Characteristic;
   public readonly thinqApi: ThinQApi;
-  /**
-   * Diagnostic aid for tracking down why the Home app renders these accessories
-   * without their climate controls. Each level adds one more piece on top of the
-   * HeaterCooler characteristics HAP requires, so restarting through 0..4 shows
-   * which piece the Home app objects to. DIAGNOSTIC_FULL is normal operation.
-   */
-  public readonly diagnosticLevel: number;
 
   private readonly cachedAccessories = new Map<string, PlatformAccessory>();
   private readonly deviceAccessories = new Map<string, AirConditionerAccessory>();
@@ -55,16 +46,6 @@ export class LgThinQAcPlatform implements DynamicPlatformPlugin {
       (config['countryCode'] as string | undefined) ?? 'DE',
       uuidv4(),
     );
-
-    const level = config['diagnosticLevel'];
-    this.diagnosticLevel = typeof level === 'number' ? level : DIAGNOSTIC_FULL;
-    if (this.diagnosticLevel !== DIAGNOSTIC_FULL) {
-      this.log.warn(
-        `Diagnostic level ${this.diagnosticLevel} active — features above this level are `
-        + 'disabled and removed from cached accessories. Remove "diagnosticLevel" from the '
-        + 'config to restore normal operation.',
-      );
-    }
 
     this.api.on('didFinishLaunching', () => this.initialize());
     this.api.on('shutdown', () => {
