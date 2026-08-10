@@ -20,13 +20,6 @@
         "type": "string",
         "default": "DE",
         "description": "Two-letter country code (e.g. DE, US, KR)"
-      },
-      "diagnosticLevel": {
-        "title": "Diagnostic Level",
-        "type": "integer",
-        "minimum": 0,
-        "maximum": 4,
-        "description": "Troubleshooting only. Limits which HomeKit characteristics are exposed: 0 = only what HAP requires, 1 = + restricted mode list, 2 = + target temperature, 3 = + fan speed, 4 = everything (default). Leave unset for normal operation."
       }
     },
     "required": [
