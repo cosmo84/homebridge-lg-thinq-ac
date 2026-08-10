@@ -87,6 +87,8 @@ export class AirConditionerAccessory {
   private readonly service: Service;
   private readonly caps: Capabilities;
   private readonly windStrengthPct: Record<string, number>;
+  /** Whether the threshold characteristics are exposed at the active diagnostic level. */
+  private thresholdsEnabled = true;
   /** Chains sendControl() calls so only one is ever in flight — see sendControl(). */
   private controlQueue: Promise<void> = Promise.resolve();
   private state: AcState = {
@@ -143,10 +145,22 @@ export class AirConditionerAccessory {
     this.service.getCharacteristic(Characteristic.CurrentHeaterCoolerState)
       .onGet(() => this.currentHcState());
 
+    // Diagnostic gates — see LgThinQAcPlatform.diagnosticLevel. Level 0 is the bare
+    // set of characteristics HAP requires on HeaterCooler, with no setProps() at all.
+    const level = this.platform.diagnosticLevel;
+    const withValidValues = level >= 1;
+    const withThresholds = level >= 2;
+    const withRotationSpeed = level >= 3;
+    const withSwing = level >= 4;
+    this.thresholdsEnabled = withThresholds;
+
     const targetModeChar = this.service.getCharacteristic(Characteristic.TargetHeaterCoolerState);
-    const validModes = this.homekitTargetModes(caps.modes);
+    const validModes = withValidValues ? this.homekitTargetModes(caps.modes) : undefined;
     if (validModes && validModes.length > 0) {
       targetModeChar.setProps({ validValues: validModes });
+    } else if (!withValidValues) {
+      // Restore HAP's default so a cached narrower set doesn't survive the downgrade.
+      targetModeChar.setProps({ validValues: [0, 1, 2] });
     }
     targetModeChar
       .onGet(() => this.targetModeCharValue(this.state.lastConventionalMode))
@@ -169,28 +183,28 @@ export class AirConditionerAccessory {
     this.service.getCharacteristic(Characteristic.CurrentTemperature)
       .onGet(() => this.state.currentTempC);
 
-    this.service.getCharacteristic(Characteristic.CoolingThresholdTemperature)
-      .onGet(() => this.state.targetTempC)
-      .onSet(async (value: CharacteristicValue) => {
-        this.state.targetTempC = value as number;
-        await this.sendControl('Temperature', {
-          temperature: { targetTemperature: value },
-        });
-      });
-
-    this.service.getCharacteristic(Characteristic.HeatingThresholdTemperature)
-      .onGet(() => this.state.targetTempC)
-      .onSet(async (value: CharacteristicValue) => {
-        this.state.targetTempC = value as number;
-        await this.sendControl('Temperature', {
-          temperature: { targetTemperature: value },
-        });
-      });
-
-    // Temperature bounds depend on the selected mode (a live profile reports Heat
-    // 16-30°C, Cool/Auto 18-30°C, 0.5° steps). Seed them for the starting mode;
-    // onSet and updateState() re-apply them whenever the mode changes.
-    this.applyTempRangeProps(this.state.mode);
+    if (withThresholds) {
+      for (const char of [
+        Characteristic.CoolingThresholdTemperature,
+        Characteristic.HeatingThresholdTemperature,
+      ]) {
+        this.service.getCharacteristic(char)
+          .onGet(() => this.state.targetTempC)
+          .onSet(async (value: CharacteristicValue) => {
+            this.state.targetTempC = value as number;
+            await this.sendControl('Temperature', {
+              temperature: { targetTemperature: value },
+            });
+          });
+      }
+      // Temperature bounds depend on the selected mode (a live profile reports Heat
+      // 16-30°C, Cool/Auto 18-30°C, 0.5° steps). Seed them for the starting mode;
+      // onSet and updateState() re-apply them whenever the mode changes.
+      this.applyTempRangeProps(this.state.mode);
+    } else {
+      this.removeCharacteristicIfPresent(Characteristic.CoolingThresholdTemperature);
+      this.removeCharacteristicIfPresent(Characteristic.HeatingThresholdTemperature);
+    }
 
     // 0.1.8-beta.1 added StatusFault to this service. HAP does not list it as a
     // characteristic of HeaterCooler, and the Home app responds to the resulting
@@ -202,7 +216,7 @@ export class AirConditionerAccessory {
     // RotationSpeed and SwingMode are optional characteristics: only expose them
     // when the device supports them, and strip them from cached accessories that
     // no longer (or never did) support them so stale controls stop erroring.
-    if (caps.windStrength) {
+    if (caps.windStrength && withRotationSpeed) {
       // minStep snaps the slider to the device's named speeds (e.g. 25 for a
       // LOW/MID/HIGH/AUTO device) instead of a 1-100 range we'd only round anyway.
       this.service.getCharacteristic(Characteristic.RotationSpeed)
@@ -219,7 +233,7 @@ export class AirConditionerAccessory {
       this.removeCharacteristicIfPresent(Characteristic.RotationSpeed);
     }
 
-    const swingField = caps.swingField;
+    const swingField = withSwing ? caps.swingField : undefined;
     if (swingField) {
       this.service.getCharacteristic(Characteristic.SwingMode)
         .onGet(() =>
@@ -312,6 +326,9 @@ export class AirConditionerAccessory {
   }
 
   private applyTempRangeProps(mode: string) {
+    // getCharacteristic() re-adds an optional characteristic that isn't present, so
+    // this must not run when the thresholds are deliberately withheld.
+    if (!this.thresholdsEnabled) return;
     const { Characteristic } = this.platform;
     const range = this.tempRangeForMode(mode);
     const cooling = clampToHapRange(range, HAP_COOLING_THRESHOLD);
@@ -391,8 +408,10 @@ export class AirConditionerAccessory {
     }
     if (targetTemp !== undefined) {
       this.state.targetTempC = targetTemp;
-      this.service.updateCharacteristic(Characteristic.CoolingThresholdTemperature, targetTemp);
-      this.service.updateCharacteristic(Characteristic.HeatingThresholdTemperature, targetTemp);
+      if (this.thresholdsEnabled) {
+        this.service.updateCharacteristic(Characteristic.CoolingThresholdTemperature, targetTemp);
+        this.service.updateCharacteristic(Characteristic.HeatingThresholdTemperature, targetTemp);
+      }
     }
     if (windStrength !== undefined && this.service.testCharacteristic(Characteristic.RotationSpeed)) {
       this.state.windStrength = windStrength;
