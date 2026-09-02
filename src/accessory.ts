@@ -315,6 +315,11 @@ export class AirConditionerAccessory {
   private async refreshState() {
     try {
       const state = await this.platform.thinqApi.getDeviceStatus(this.device.deviceId);
+      // Logged once at startup (not on every MQTT push) so the fields a device
+      // actually reports are visible without having to query the API by hand.
+      this.platform.log.debug(
+        `[${this.device.alias}] Initial state: ${JSON.stringify(state)}`,
+      );
       this.updateState(state);
     } catch (err) {
       this.platform.log.error(

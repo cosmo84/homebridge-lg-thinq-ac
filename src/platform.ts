@@ -95,6 +95,13 @@ export class LgThinQAcPlatform implements DynamicPlatformPlugin {
       let profile: Record<string, unknown> | undefined;
       try {
         profile = await this.thinqApi.getDeviceProfile(device.deviceId);
+        // The profile is the ground truth for which features a model supports, and
+        // it differs between model variants we can't test against. Dumping it at
+        // debug level turns "feature X is missing" reports into a one-round answer.
+        this.log.debug(
+          `[${device.alias}] Profile (${device.deviceType}/${device.modelName}): `
+          + JSON.stringify(profile),
+        );
       } catch (err) {
         this.log.warn(
           `[${device.alias}] Profile fetch failed, exposing all features:`, (err as Error).message,
