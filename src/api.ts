@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 const API_KEY = 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3';
 
 function regionUrl(countryCode: string): string {
-  if (['US', 'CA', 'MX', 'BR', 'CL', 'CO', 'AR'].includes(countryCode)) {
+  if (['US', 'CA', 'MX', 'BR', 'CL', 'CO', 'AR', 'GT'].includes(countryCode)) {
     return 'https://api-aic.lgthinq.com';
   }
   if (['KR', 'JP', 'AU', 'NZ', 'TW', 'SG', 'TH', 'MY', 'ID', 'PH', 'VN', 'IN', 'CN'].includes(countryCode)) {
