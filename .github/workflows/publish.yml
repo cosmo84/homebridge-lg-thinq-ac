@@ -1,11 +1,22 @@
 name: Publish to npm
 
+# Authenticates via npm trusted publishing (OIDC); no npm token is involved.
+# The trusted publisher on npmjs.com is bound to this file name and the
+# `production` environment, so both betas and releases must go through here.
+
 on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      dist-tag:
+        description: 'npm dist-tag: "latest" for releases (run on main), "beta" for prereleases (run on dev)'
+        type: choice
+        options: [latest, beta]
+        default: latest
 
 permissions:
+  contents: read
   id-token: write
 
 jobs:
@@ -24,10 +35,25 @@ jobs:
 
       - run: npm run build
 
-      - name: Check if version already published
-        id: version_check
+      - name: Resolve version and dist-tag
+        id: meta
+        env:
+          DIST_TAG: ${{ github.event.inputs.dist-tag || 'latest' }}
         run: |
           VERSION=$(node -p "require('./package.json').version")
+          # A prerelease must never become "latest", and a release must not hide behind "beta".
+          case "$VERSION" in
+            *-*) [ "$DIST_TAG" = "beta" ]   || { echo "::error::$VERSION is a prerelease; publish it with dist-tag beta."; exit 1; } ;;
+            *)   [ "$DIST_TAG" = "latest" ] || { echo "::error::$VERSION is a release; publish it with dist-tag latest."; exit 1; } ;;
+          esac
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "dist_tag=$DIST_TAG" >> $GITHUB_OUTPUT
+
+      - name: Check if version already published
+        id: version_check
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
           if npm view homebridge-lg-thinqconnect-ac@$VERSION version 2>/dev/null; then
             echo "already_published=true" >> $GITHUB_OUTPUT
             echo "Version $VERSION already on npm, skipping."
@@ -37,22 +63,21 @@ jobs:
 
       - name: Publish to npm
         if: steps.version_check.outputs.already_published == 'false'
-        run: npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          DIST_TAG: ${{ steps.meta.outputs.dist_tag }}
+        run: npm publish --access public --tag "$DIST_TAG"
 
-      - name: Deprecate previous versions
-        if: steps.version_check.outputs.already_published == 'false'
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          VERSIONS=$(npm view homebridge-lg-thinqconnect-ac versions --json | node -e "
-            const current = '$VERSION';
-            const all = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-            all.filter(v => v !== current).forEach(v => console.log(v));
-          ")
-          for v in $VERSIONS; do
-            echo "Deprecating $v..."
-            npm deprecate homebridge-lg-thinqconnect-ac@$v "Deprecated: please upgrade to v$VERSION"
-          done
+      # npm only accepts OIDC for publishing; deprecating requires an interactive
+      # 2FA confirmation since July 2026, so it has to be run by a maintainer.
+      - name: Print deprecation command
+        if: steps.version_check.outputs.already_published == 'false' && steps.meta.outputs.dist_tag == 'latest'
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          {
+            echo "### Deprecate previous versions"
+            echo "Run in a local terminal (requires \`npm login\` and 2FA):"
+            echo '```'
+            echo "npm deprecate homebridge-lg-thinqconnect-ac@\"<$VERSION\" \"Deprecated: please upgrade to v$VERSION\""
+            echo '```'
+          } >> $GITHUB_STEP_SUMMARY
