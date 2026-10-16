@@ -3,11 +3,23 @@ import { v4 as uuidv4 } from 'uuid';
 
 const API_KEY = 'v6GFvkweNo7DK7yD3ylIZ9w52aKBU0eJ7wLXkSR3';
 
+// Country-to-region mapping as defined by LG's official SDK
+// (thinq-connect/pythinqconnect, thinqconnect/country.py). Every other country uses EIC.
+const AIC_COUNTRIES = [
+  'AG', 'AR', 'AW', 'BB', 'BO', 'BR', 'BS', 'BZ', 'CA', 'CL', 'CO', 'CR', 'CU',
+  'DM', 'DO', 'EC', 'GD', 'GT', 'GY', 'HN', 'HT', 'JM', 'KN', 'LC', 'MX', 'NI',
+  'PA', 'PE', 'PR', 'PY', 'SR', 'SV', 'TT', 'US', 'UY', 'VC', 'VE',
+];
+const KIC_COUNTRIES = [
+  'AU', 'BD', 'CN', 'HK', 'ID', 'IN', 'JP', 'KH', 'KR', 'LA', 'LK', 'MM', 'MY',
+  'NP', 'NZ', 'PH', 'SG', 'TH', 'TW', 'VN',
+];
+
 function regionUrl(countryCode: string): string {
-  if (['US', 'CA', 'MX', 'BR', 'CL', 'CO', 'AR', 'GT'].includes(countryCode)) {
+  if (AIC_COUNTRIES.includes(countryCode)) {
     return 'https://api-aic.lgthinq.com';
   }
-  if (['KR', 'JP', 'AU', 'NZ', 'TW', 'SG', 'TH', 'MY', 'ID', 'PH', 'VN', 'IN', 'CN'].includes(countryCode)) {
+  if (KIC_COUNTRIES.includes(countryCode)) {
     return 'https://api-kic.lgthinq.com';
   }
   return 'https://api-eic.lgthinq.com';
