@@ -43,7 +43,7 @@ export class LgThinQAcPlatform implements DynamicPlatformPlugin {
 
     this.thinqApi = new ThinQApi(
       config['accessToken'] as string,
-      (config['countryCode'] as string | undefined) ?? 'DE',
+      ((config['countryCode'] as string | undefined) ?? '').trim().toUpperCase() || 'DE',
       uuidv4(),
     );
 
